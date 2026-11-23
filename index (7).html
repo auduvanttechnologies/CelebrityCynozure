@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Spotlight — Daily Celebrity Hangman</title>
+<meta name="description" content="Guess today's celebrity one letter at a time. Every correct letter unlocks a clue.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0c15; --panel:#1a1724; --line:#2e2a3d; --ink:#f4efe6; --dim:#8d869e;
+    --gold:#ffc94a; --hit:#3ddc84; --miss:#ff5d6c; --warn:#ff9f43;
+    --display:'Bricolage Grotesque',system-ui,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:radial-gradient(ellipse 80% 45% at 50% -5%,#3a2c0a 0%,transparent 70%),var(--bg);
+    color:var(--ink);font-family:var(--display);display:flex;flex-direction:column;align-items:center}
+  .app{width:100%;max-width:520px;min-height:100%;display:flex;flex-direction:column;padding:0 14px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;border-bottom:1px solid var(--line)}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  h1 span{color:var(--gold)}
+  .icon-btn{background:none;border:1px solid var(--line);color:var(--ink);width:38px;height:38px;border-radius:10px;font-size:17px;cursor:pointer}
+  .icon-btn:active{background:var(--panel)}
+  .meta{display:flex;justify-content:space-between;align-items:center;margin:12px 0 4px;font-family:var(--mono);font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+  .mode-tag{color:var(--gold)}
+  .stage{display:flex;gap:14px;align-items:center;margin:6px 0 10px}
+  svg.gallows{width:92px;height:104px;flex-shrink:0}
+  svg.gallows .base{stroke:var(--dim);stroke-width:4;stroke-linecap:round;fill:none}
+  svg.gallows .part{stroke:var(--miss);stroke-width:4;stroke-linecap:round;fill:none;opacity:0;transition:opacity .25s}
+  svg.gallows .part.on{opacity:1}
+  .lives{font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:6px}
+  .lives b{color:var(--ink)}
+  .word{display:flex;flex-wrap:wrap;gap:12px 14px;flex:1}
+  .wordpart{display:flex;gap:4px}
+  .tile{width:26px;height:34px;border-bottom:3px solid var(--dim);display:flex;align-items:flex-end;justify-content:center;
+    font-family:var(--mono);font-size:21px;padding-bottom:2px}
+  .tile.shown{border-color:var(--gold);animation:pop .25s ease}
+  .tile.lost{color:var(--miss);border-color:var(--miss)}
+  .punct{font-family:var(--mono);font-size:21px;align-self:flex-end;padding-bottom:4px}
+  @keyframes pop{0%{transform:translateY(6px);opacity:0}100%{transform:none;opacity:1}}
+  .shake{animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+  .clues{list-style:none;display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .clues li{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:15px;line-height:1.3;display:flex;gap:10px}
+  .clues li .n{font-family:var(--mono);color:var(--gold);font-size:12px;padding-top:2px}
+  .clues li.locked{color:var(--dim);border-style:dashed;background:transparent;font-size:13px}
+  .clues li.locked .n{color:var(--dim)}
+  .clues li.fresh{animation:pop .35s ease;border-color:var(--gold)}
+  .solve-row{display:flex;gap:8px;margin-bottom:12px}
+  .solve-row input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-family:var(--display);font-size:16px}
+  .solve-row input:focus{outline:2px solid var(--gold);border-color:transparent}
+  .btn{background:var(--gold);color:#1a1405;border:none;border-radius:10px;padding:11px 16px;font-family:var(--display);font-weight:800;font-size:15px;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn:active{transform:scale(.97)}
+  .keyboard{margin-top:auto;padding:8px 0 14px;display:flex;flex-direction:column;gap:6px;position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 18%)}
+  .krow{display:flex;gap:5px;justify-content:center}
+  .key{flex:1;max-width:44px;height:50px;border:none;border-radius:8px;background:#3a3550;color:var(--ink);font-family:var(--mono);font-size:16px;cursor:pointer}
+  .key:active{transform:scale(.94)}
+  .key.hit{background:var(--hit);color:#06210f}
+  .key.miss{background:#25212f;color:#5a546a}
+  .key:disabled{cursor:default}
+  .overlay{position:fixed;inset:0;background:rgba(5,4,9,.78);display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 20px;width:100%;max-width:400px;max-height:90vh;overflow:auto;position:relative}
+  .modal h2{font-size:24px;font-weight:800;margin-bottom:6px}
+  .modal p{color:#cfc8db;font-size:15px;line-height:1.45;margin-bottom:10px}
+  .modal .close{position:absolute;top:12px;right:12px}
+  .answer{font-size:28px;font-weight:800;color:var(--gold);margin:4px 0 12px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0;text-align:center}
+  .stats b{display:block;font-size:26px;font-weight:800}
+  .stats span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .grid{font-size:18px;letter-spacing:2px;margin:8px 0 14px;word-break:break-all}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .actions .btn{flex:1}
+  .next{font-family:var(--mono);font-size:13px;color:var(--dim);margin-top:14px;text-align:center}
+  .next b{color:var(--ink)}
+  .toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-weight:800;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+  .toast.show{opacity:1}
+  .howto li{margin:0 0 8px 18px;color:#cfc8db;font-size:15px;line-height:1.4}
+  .ad-slot{display:none} /* reserved for Zawadi Media placement */
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <button class="icon-btn" id="helpBtn" aria-label="How to play">?</button>
+    <h1>Spot<span>light</span></h1>
+    <button class="icon-btn" id="statsBtn" aria-label="Stats">📊</button>
+  </header>
+
+  <div class="meta"><span id="puzzleLabel">#1</span><span class="mode-tag" id="modeLabel">Daily</span></div>
+
+  <div class="stage">
+    <div>
+      <svg class="gallows" viewBox="0 0 92 104" aria-hidden="true">
+        <path class="base" d="M6 100 H62 M20 100 V6 H62 V18"/>
+        <circle class="part" cx="62" cy="28" r="10"/>
+        <path class="part" d="M62 38 V66"/>
+        <path class="part" d="M62 46 L48 58"/>
+        <path class="part" d="M62 46 L76 58"/>
+        <path class="part" d="M62 66 L50 84"/>
+        <path class="part" d="M62 66 L74 84"/>
+      </svg>
+      <div class="lives">Lives <b id="lives">6</b></div>
+    </div>
+    <div class="word" id="word"></div>
+  </div>
+
+  <ul class="clues" id="clues"></ul>
+
+  <div class="solve-row" id="solveRow">
+    <input id="solveInput" placeholder="Know it? Type the full name…" autocomplete="off" autocapitalize="words" enterkeyhint="go">
+    <button class="btn" id="solveBtn">Solve</button>
+  </div>
+
+  <div class="ad-slot" id="zawadi-slot"></div>
+
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<div class="overlay" id="helpModal">
+  <div class="modal">
+    <button class="icon-btn close" data-close>✕</button>
+    <h2>How to play</h2>
+    <ul class="howto">
+      <li>There's a new mystery celebrity every day.</li>
+      <li>Guess letters in their name. You get <b>6 wrong guesses</b>.</li>
+      <li>Every <b>correct</b> letter unlocks the next clue.</li>
+      <li>Think you know it? Hit <b>Solve</b>, but a wrong answer costs a life.</li>
+    </ul>
+    <p style="margin-top:8px">Want more after the daily? Play practice rounds. They don't count toward your streak.</p>
+    <button class="btn" data-close style="width:100%">Let's go</button>
+  </div>
+</div>
+
+<div class="overlay" id="resultModal">
+  <div class="modal">
+    <button class="icon-btn close" data-close>✕</button>
+    <h2 id="resultTitle">Nailed it</h2>
+    <p id="resultSub">Today's celebrity was</p>
+    <div class="answer" id="resultAnswer"></div>
+    <div class="stats" id="statsGrid"></div>
+    <div class="grid" id="resultGrid"></div>
+    <div class="actions">
+      <button class="btn" id="shareBtn">Share</button>
+      <button class="btn ghost" id="practiceBtn">Practice round</button>
+    </div>
+    <div class="next" id="nextWrap">Next celebrity in <b id="countdown">--:--:--</b></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   DATA: ordered by tier, so the first days use global icons.
+   clues[0] is free; each correct letter unlocks the next one.
+   Keep clues to stable, verifiable facts.
+   ============================================================ */
+const CELEBS = [
+  // Tier 1: global icons
+  {name:"Lionel Messi", clues:["Athlete · born in South America, 1987","Footballer","Spent most of his career at one club: FC Barcelona","Won the 2022 World Cup as his country's captain","Record eight Ballon d'Or awards","Born in Rosario, Argentina"]},
+  {name:"Cristiano Ronaldo", clues:["Athlete · born in Europe, 1985","Footballer","Born on the island of Madeira","Won the Champions League with both Manchester United and Real Madrid","All-time top scorer in men's international football","Famous for the \"Siuuu\" celebration"]},
+  {name:"Taylor Swift", clues:["Musician · born in the USA, 1989","Started out in country music","Her fans are known as Swifties","Re-recorded her early albums as \"Taylor's Version\"","The Eras Tour became the highest-grossing tour ever","Has an album named after her birth year"]},
+  {name:"Beyoncé", clues:["Musician · born in the USA, 1981","First found fame in a girl group","That group was Destiny's Child","Has won more Grammys than any other artist","Albums include \"Lemonade\" and \"Renaissance\"","Her fans are known as the BeyHive"]},
+  {name:"Dwayne Johnson", clues:["Actor · born in the USA, 1972","Played college football at the University of Miami","Became a superstar in pro wrestling","Stars in the Fast & Furious and Jumanji films","Voiced Maui in Disney's Moana","Better known as The Rock"]},
+  {name:"Usain Bolt", clues:["Athlete · born in the Caribbean, 1986","Sprinter","Holds the 100m world record of 9.58 seconds","Won eight Olympic gold medals","From Jamaica","Famous for his lightning-bolt pose"]},
+  {name:"Rihanna", clues:["Musician and entrepreneur · born in the Caribbean, 1988","Breakthrough hit: \"Umbrella\"","Founded the beauty brand Fenty Beauty","Headlined the 2023 Super Bowl halftime show","From Barbados","Goes by her middle name"]},
+  {name:"Elon Musk", clues:["Business · born in Africa, 1971","Co-founded the company that became PayPal","Founded the rocket company SpaceX","CEO of Tesla","Bought Twitter and renamed it X","Born in Pretoria, South Africa"]},
+  {name:"Serena Williams", clues:["Athlete · born in the USA, 1981","Tennis player","Won 23 Grand Slam singles titles","Her older sister is also a former world No. 1","Won Olympic gold in singles and doubles","Retired in 2022"]},
+  {name:"Eliud Kipchoge", clues:["Athlete · born in Africa, 1984","Long-distance runner","Two-time Olympic marathon champion","First person to run a marathon in under two hours (2019)","From Kenya","Motto: \"No human is limited\""]},
+  // Tier 2: adjacent stars
+  {name:"Kylian Mbappé", clues:["Athlete · born in Europe, 1998","Footballer","Won the World Cup as a teenager in 2018","Scored a hat-trick in the 2022 World Cup final","Became a star at Paris Saint-Germain","Captain of France"]},
+  {name:"Erling Haaland", clues:["Athlete · born in Europe, 2000","Footballer","Born in Leeds, England, but plays for Norway","Scored 36 Premier League goals in his first season","Won the treble with Manchester City in 2023","His father also played for Manchester City"]},
+  {name:"Drake", clues:["Musician · born in North America, 1986","Started out as an actor on the teen drama Degrassi","Founded the OVO label","Hits include \"Hotline Bling\" and \"God's Plan\"","Calls Toronto \"the 6\"","His real first name is Aubrey"]},
+  {name:"Zendaya", clues:["Actor · born in the USA, 1996","Started out on the Disney Channel","Won two Emmys for HBO's Euphoria","Plays Chani in the Dune films","Played MJ in the Tom Holland Spider-Man films","Known by a single name"]},
+  {name:"MrBeast", clues:["Creator · born in the USA, 1998","YouTuber","Runs the most-subscribed YouTube channel","Famous for huge giveaway stunts","Started the snack brand Feastables","Real name: Jimmy Donaldson"]},
+  {name:"LeBron James", clues:["Athlete · born in the USA, 1984","Basketball player","The NBA's all-time leading scorer","Four-time NBA champion","From Akron, Ohio","Nicknamed \"King James\""]},
+  {name:"Shakira", clues:["Musician · born in South America, 1977","Hits include \"Hips Don't Lie\"","Sang \"Waka Waka\" for the 2010 World Cup","Co-headlined the 2020 Super Bowl halftime show","From Barranquilla, Colombia","Known by a single name"]},
+  {name:"Mohamed Salah", clues:["Athlete · born in Africa, 1992","Footballer","Has won multiple Premier League Golden Boots","Won the Champions League with Liverpool","Nicknamed \"The Egyptian King\"","Captain of Egypt"]},
+  {name:"Roger Federer", clues:["Athlete · born in Europe, 1981","Tennis player","Won 20 Grand Slam singles titles","Record eight Wimbledon men's singles titles","From Switzerland","Retired in 2022 in a doubles match alongside Nadal"]},
+  {name:"Ed Sheeran", clues:["Musician · born in Europe, 1991","Singer-songwriter known for using a loop pedal","Hit: \"Shape of You\"","Most of his albums are named after maths symbols","From England","Famous red hair"]},
+  {name:"Adele", clues:["Musician · born in Europe, 1988","Hits include \"Rolling in the Deep\" and \"Hello\"","Her albums are named after her age at the time","Won an Oscar for a James Bond theme","From London","Known by a single name"]},
+  {name:"David Beckham", clues:["Athlete · born in Europe, 1975","Footballer","Came through Manchester United's \"Class of '92\"","Famous for his free kicks","Married to a former Spice Girl","Co-owner of Inter Miami"]},
+  {name:"Keanu Reeves", clues:["Actor · born in the Middle East, 1964","Raised mostly in Toronto","Played Neo in The Matrix","Stars as an assassin seeking revenge for his dog","Also played Ted in Bill & Ted","Born in Beirut, Lebanon"]},
+  {name:"Oprah Winfrey", clues:["Media · born in the USA, 1954","Hosted a daytime talk show for 25 years","Her book club made bestsellers overnight","Famous moment: \"You get a car!\"","Launched the OWN network","Starred in The Color Purple (1985)"]},
+  {name:"Neymar", clues:["Athlete · born in South America, 1992","Footballer","Came through at Santos","Part of the \"MSN\" front three at Barcelona","His move to PSG in 2017 is the world-record transfer","Brazil's joint all-time top scorer"]},
+  // Tier 3: Africa and the regional angle
+  {name:"Burna Boy", clues:["Musician · born in Africa, 1991","Afrobeats artist","Won a Grammy for the album \"Twice as Tall\"","Calls himself the \"African Giant\"","Hit: \"Last Last\"","From Port Harcourt, Nigeria"]},
+  {name:"Lupita Nyong'o", clues:["Actor · born in North America, 1983","Raised in Kenya","Trained at the Yale School of Drama","Won an Oscar for 12 Years a Slave","Played Nakia in Black Panther","Born in Mexico City"]},
+  {name:"Faith Kipyegon", clues:["Athlete · born in Africa, 1994","Middle-distance runner","Three straight Olympic 1500m gold medals (2016, 2021, 2024)","Has set world records in the 1500m and the mile","From Kenya","Won her first world title in Beijing, 2015"]},
+  {name:"Sauti Sol", clues:["Musicians · formed in Africa, 2005","A four-member band","Afro-pop","Hit: \"Suzanna\"","From Nairobi, Kenya","Their name combines the Swahili word for \"voice\" with the Spanish word for \"sun\""]},
+];
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const MAX_WRONG = 6;
+const LAUNCH = new Date(2026, 10, 22); // puzzle #1 date (local). Month is 0-indexed.
+const KEY_ROWS = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+const lettersOnly = s => norm(s).replace(/[^A-Z]/g,'');
+function dayIndex(){
+  const n = new Date();
+  const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return Math.round((today - LAUNCH) / 86400000);
+}
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let state;
+let lastUnlocked = 1;
+
+function freshState(idx, mode, day){
+  return {idx, mode, day, guessed:[], wrong:0, history:[], status:'playing', counted:false};
+}
+const celeb = () => CELEBS[state.idx];
+const needed = () => new Set(lettersOnly(celeb().name).split(''));
+const unlocked = () => Math.min(celeb().clues.length, 1 + state.history.filter(h=>h==='hit').length);
+function save(){ if(state.mode==='daily') store.set('spot_daily', state); }
+
+function startDaily(){
+  const di = dayIndex();
+  const idx = ((di % CELEBS.length) + CELEBS.length) % CELEBS.length;
+  let s = store.get('spot_daily', null);
+  if(!s || s.day !== di || s.idx !== idx) s = freshState(idx, 'daily', di);
+  state = s;
+  lastUnlocked = unlocked();
+  render();
+  if(state.status !== 'playing') setTimeout(showResult, 300);
+}
+function startPractice(){
+  const dailyIdx = ((dayIndex() % CELEBS.length) + CELEBS.length) % CELEBS.length;
+  let idx;
+  do { idx = Math.floor(Math.random()*CELEBS.length); } while(idx === dailyIdx && CELEBS.length > 1);
+  state = freshState(idx, 'practice', dayIndex());
+  lastUnlocked = 1;
+  closeModals();
+  render();
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+function guess(L){
+  if(state.status !== 'playing' || state.guessed.includes(L)) return;
+  state.guessed.push(L);
+  if(needed().has(L)){
+    state.history.push('hit');
+    if([...needed()].every(x => state.guessed.includes(x))) state.status = 'won';
+  } else {
+    state.wrong++; state.history.push('miss');
+    if(state.wrong >= MAX_WRONG) state.status = 'lost';
+  }
+  afterMove();
+}
+function solve(){
+  if(state.status !== 'playing') return;
+  const input = $('#solveInput'), val = input.value.trim();
+  if(!val) return;
+  if(lettersOnly(val) === lettersOnly(celeb().name)){
+    state.history.push('solve'); state.status = 'won';
+  } else {
+    state.wrong++; state.history.push('solvemiss');
+    $('#word').classList.remove('shake'); void $('#word').offsetWidth; $('#word').classList.add('shake');
+    toast('Not quite. That cost you a life.');
+    if(state.wrong >= MAX_WRONG) state.status = 'lost';
+  }
+  input.value = ''; input.blur();
+  afterMove();
+}
+function afterMove(){
+  if(state.status !== 'playing' && state.mode === 'daily' && !state.counted){
+    const st = store.get('spot_stats', {played:0,wins:0,streak:0,max:0,last:null});
+    st.played++;
+    if(state.status === 'won'){
+      st.wins++;
+      st.streak = (st.last === state.day - 1) ? st.streak + 1 : 1;
+      st.max = Math.max(st.max, st.streak);
+    } else st.streak = 0;
+    st.last = state.day;
+    store.set('spot_stats', st);
+    state.counted = true;
+  }
+  save(); render();
+  if(state.status !== 'playing') setTimeout(showResult, 700);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  const c = celeb(), over = state.status !== 'playing';
+  $('#puzzleLabel').textContent = state.mode === 'daily' ? `#${state.day + 1}` : 'Practice';
+  $('#modeLabel').textContent = state.mode === 'daily' ? 'Daily' : 'Free play';
+  $('#lives').textContent = MAX_WRONG - state.wrong;
+  document.querySelectorAll('svg.gallows .part').forEach((p,i)=>p.classList.toggle('on', i < state.wrong));
+
+  // word
+  const w = $('#word'); w.innerHTML = '';
+  c.name.split(' ').forEach(part=>{
+    const g = document.createElement('div'); g.className = 'wordpart';
+    [...part].forEach(ch=>{
+      const n = norm(ch);
+      const el = document.createElement('span');
+      if(/[A-Z]/.test(n)){
+        const shown = state.guessed.includes(n) || state.status === 'won';
+        el.className = 'tile' + (shown ? ' shown' : (over ? ' lost' : ''));
+        el.textContent = (shown || over) ? ch.toUpperCase() : '';
+      } else { el.className = 'punct'; el.textContent = ch; }
+      g.appendChild(el);
+    });
+    w.appendChild(g);
+  });
+
+  // clues
+  const u = over ? c.clues.length : unlocked();
+  const ul = $('#clues'); ul.innerHTML = '';
+  c.clues.forEach((t,i)=>{
+    const li = document.createElement('li');
+    if(i < u){
+      li.innerHTML = `<span class="n">${i+1}</span><span></span>`;
+      li.lastChild.textContent = t;
+      if(i >= lastUnlocked && !over) li.classList.add('fresh');
+    } else {
+      li.className = 'locked';
+      li.innerHTML = `<span class="n">${i+1}</span><span>🔒 Guess a correct letter to unlock</span>`;
+    }
+    ul.appendChild(li);
+  });
+  lastUnlocked = u;
+
+  // keyboard
+  document.querySelectorAll('.key').forEach(k=>{
+    const L = k.dataset.k, g = state.guessed.includes(L);
+    k.className = 'key' + (g ? (needed().has(L) ? ' hit' : ' miss') : '');
+    k.disabled = g || over;
+  });
+  $('#solveRow').style.display = over ? 'none' : 'flex';
+}
+
+function buildKeyboard(){
+  const kb = $('#keyboard');
+  KEY_ROWS.forEach(r=>{
+    const row = document.createElement('div'); row.className = 'krow';
+    [...r].forEach(L=>{
+      const b = document.createElement('button');
+      b.className = 'key'; b.dataset.k = L; b.textContent = L;
+      b.addEventListener('click', ()=>guess(L));
+      row.appendChild(b);
+    });
+    kb.appendChild(row);
+  });
+}
+
+/* ============================================================
+   RESULT, SHARE, STATS
+   ============================================================ */
+const EMOJI = {hit:'🟩', miss:'🟥', solve:'⭐', solvemiss:'🟧'};
+function shareText(){
+  const label = state.mode === 'daily' ? `#${state.day + 1}` : '(practice)';
+  const res = state.status === 'won' ? `✅ ${MAX_WRONG - state.wrong}❤️ left` : '❌';
+  const clues = state.status === 'won' ? ` · ${unlocked()}/${celeb().clues.length} clues` : '';
+  return `Spotlight ${label} ${res}${clues}\n${state.history.map(h=>EMOJI[h]).join('')}\n${location.href.split('#')[0]}`;
+}
+function renderStats(){
+  const st = store.get('spot_stats', {played:0,wins:0,streak:0,max:0});
+  const pct = st.played ? Math.round(st.wins / st.played * 100) : 0;
+  $('#statsGrid').innerHTML =
+    `<div><b>${st.played}</b><span>Played</span></div><div><b>${pct}</b><span>Win %</span></div>` +
+    `<div><b>${st.streak}</b><span>Streak</span></div><div><b>${st.max}</b><span>Best</span></div>`;
+}
+function showResult(){
+  const over = state.status !== 'playing';
+  $('#resultTitle').textContent = !over ? 'Your stats' : state.status === 'won' ? 'Nailed it 🌟' : 'Out of lives';
+  $('#resultSub').style.display = over ? 'block' : 'none';
+  $('#resultSub').textContent = state.mode === 'daily' ? "Today's celebrity was" : 'It was';
+  $('#resultAnswer').textContent = over ? celeb().name : '';
+  $('#resultGrid').textContent = over ? state.history.map(h=>EMOJI[h]).join('') : '';
+  $('#shareBtn').style.display = over ? 'block' : 'none';
+  renderStats();
+  $('#resultModal').classList.add('open');
+}
+async function share(){
+  const text = shareText();
+  try{
+    if(navigator.share && /Mobi|Android/i.test(navigator.userAgent)){ await navigator.share({text}); return; }
+    await navigator.clipboard.writeText(text); toast('Copied to clipboard');
+  }catch(e){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+    ta.select(); try{ document.execCommand('copy'); toast('Copied to clipboard'); }catch(_){ toast('Could not copy'); }
+    ta.remove();
+  }
+}
+function tickCountdown(){
+  const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+  const s = Math.max(0, Math.floor((next - n) / 1000));
+  const p = x => String(x).padStart(2,'0');
+  $('#countdown').textContent = `${p(Math.floor(s/3600))}:${p(Math.floor(s%3600/60))}:${p(s%60)}`;
+  if(state && state.mode === 'daily' && state.day !== dayIndex()) startDaily(); // midnight rollover
+}
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+function closeModals(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open')); }
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', closeModals));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click', e=>{ if(e.target === o) closeModals(); }));
+$('#helpBtn').addEventListener('click', ()=>$('#helpModal').classList.add('open'));
+$('#statsBtn').addEventListener('click', showResult);
+$('#solveBtn').addEventListener('click', solve);
+$('#solveInput').addEventListener('keydown', e=>{ if(e.key === 'Enter') solve(); });
+$('#shareBtn').addEventListener('click', share);
+$('#practiceBtn').addEventListener('click', startPractice);
+document.addEventListener('keydown', e=>{
+  if(document.activeElement === $('#solveInput')) return;
+  if(document.querySelector('.overlay.open')) { if(e.key === 'Escape') closeModals(); return; }
+  if(/^[a-zA-Z]$/.test(e.key) && !e.metaKey && !e.ctrlKey) guess(e.key.toUpperCase());
+});
+
+buildKeyboard();
+startDaily();
+tickCountdown(); setInterval(tickCountdown, 1000);
+if(!store.get('spot_seen_help', false)){ $('#helpModal').classList.add('open'); store.set('spot_seen_help', true); }
+</script>
+</body>
+</html>
